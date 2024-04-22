@@ -100,6 +100,7 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 
 	if err := e.collect(ch); err != nil {
 		e.incrementFailures(ch)
+		fmt.Println("[ERROR] - ", err)
 	}
 
 	e.timer = time.AfterFunc(time.Duration(e.config.GuardIntervalMillis)*time.Millisecond, func() {
@@ -148,11 +149,17 @@ func (e *exporter) collect(ch chan<- prometheus.Metric) error {
 	processedCnt, _ := strconv.ParseFloat(processed, 64)
 	e.processed.Set(processedCnt)
 
-	failedtotal, err := redis.Get(fmt.Sprintf("%s:stat:failed", resqueNamespace)).Result()
+	failed, err := redis.LLen(fmt.Sprintf("%s:failed", resqueNamespace)).Result()
 	if err != nil {
 		return err
 	}
-	failedCnt, _ := strconv.ParseFloat(failedtotal, 64)
+	// handles when there are no failed jobs yet
+	if failed == nil {
+		failed = 0
+	}
+
+	e.failedQueue.Set(float64(failed))
+
 	e.failedTotal.Set(failedCnt)
 
 	workers, err := redis.SMembers(fmt.Sprintf("%s:workers", resqueNamespace)).Result()
