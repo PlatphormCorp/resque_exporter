@@ -149,17 +149,12 @@ func (e *exporter) collect(ch chan<- prometheus.Metric) error {
 	processedCnt, _ := strconv.ParseFloat(processed, 64)
 	e.processed.Set(processedCnt)
 
-	failed, err := redis.LLen(fmt.Sprintf("%s:failed", resqueNamespace)).Result()
+	failedtotal, err := redis.Get(fmt.Sprintf("%s:stat:failed", resqueNamespace)).Result()
 	if err != nil {
-		return err
-	}
-	// handles when there are no failed jobs yet
-	if failed == nil {
-		failed = 0
+		failedtotal = "0"
 	}
 
-	e.failedQueue.Set(float64(failed))
-
+	failedCnt, _ := strconv.ParseFloat(failedtotal, 64)
 	e.failedTotal.Set(failedCnt)
 
 	workers, err := redis.SMembers(fmt.Sprintf("%s:workers", resqueNamespace)).Result()
